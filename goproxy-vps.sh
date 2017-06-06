@@ -32,11 +32,12 @@ start() {
     local daemon_stderr=$(cat goproxy-vps.user.toml goproxy-vps.toml 2>/dev/null | awk -F= '/daemon_stderr/{gsub(/ /, "", $2); gsub(/"/, "", $2); print $2; exit}')
     local log_file=${daemon_stderr:-goproxy-vps.log}
     log_file=$(cd $(dirname ${log_file}); echo $(pwd -P)/$(basename ${log_file}))
+    test $(ulimit -n) -lt 65535 && ulimit -n 65535
     nohup ./goproxy-vps >>${log_file} 2>&1 &
     local pid=$!
     echo -n "Starting ${PACKAGE_NAME}(${pid}): "
     sleep 1
-    if ps ax | grep "${pid} " >/dev/null 2>&1; then
+    if (ps ax 2>/dev/null || ps) | grep "${pid} " >/dev/null 2>&1; then
         echo "OK"
     else
         echo "Failed"
@@ -59,7 +60,7 @@ EOF
 }
 
 stop() {
-    for pid in $(ps ax | grep -v grep | grep ./goproxy-vps | awk '{print $1}')
+    for pid in $( (ps ax 2>/dev/null || ps) | awk '/goproxy-vps(\s|$)/{print $1}')
     do
         local exe=$(ls -l /proc/${pid}/exe 2>/dev/null | sed "s/.*->\s*//" | sed 's/\s*(deleted)\s*//')
         local cwd=$(ls -l /proc/${pid}/cwd 2>/dev/null | sed "s/.*->\s*//" | sed 's/\s*(deleted)\s*//')
